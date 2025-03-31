@@ -13,15 +13,13 @@ load_dotenv()
 # Configure Google Generative AI
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Create Flask app
-app = Flask(__name__)
-
+# TUNED_MODEL_ID = 'tunedModels/spammodelgemini-a9q7ybtlpzm7'
 # Generative model setup
 generation_config = {
-    "temperature": 1,
+    "temperature": 0.7,
     "top_p": 0.95,
     "top_k": 40,
-    "max_output_tokens": 8192,
+    "max_output_tokens": 512,
     "response_mime_type": "text/plain",
 }
 @app.route("/")
@@ -38,30 +36,34 @@ def ask():
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        # Get the user message from the request
+        print("recieved requesst")
         user_message = request.json.get("message")
+        print("kuch to hai ")
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
         
-        # Initialize model
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config=generation_config,
         )
 
-        # Start a chat session
-        chat_session = model.start_chat(
-            history=[
-                {"role": "user", "parts": [user_message]},
-                {"role": "model", "parts": ["Hi! How can I assist you today?"]},
-            ]
-        )
+        response = model.generate_content(user_message)
 
-        # Get model response
-        response = chat_session.send_message(user_message)
-        return jsonify({"response": response.text})
+        print("Raw API Response:", response)
+
+        # Extract text from response
+        if response and response.candidates:
+            bot_message = response.candidates[0].content.parts[0].text
+            print("Final Response Text:", bot_message)
+            return jsonify({"response": bot_message})
+        else:
+            print("Error: Invalid response structure")
+            return jsonify({"error": "Invalid response from model"}), 500
+
     except Exception as e:
+        print("ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     print("Starting Flask server...")
